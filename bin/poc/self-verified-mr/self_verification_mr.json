@@ -2,17 +2,15 @@
   "in_data_path": "./bin/poc/self-verified-mr/fake_data.jsonl",
   "out_data_path": "./_element_mr_text.admission_note.jsonl",
   "in_text_cols": [
-    "admission_note",
-    "age",
-    "discharge_note",
-    "family_history",
-    "gender",
-    "lab_tests",
-    "medication_history",
-    "nursing_note",
-    "progress_notes",
-    "surgery_notes",
-    "vital_signs"
+    "allergies",
+    "diagnosis",
+    "encounters",
+    "labs",
+    "medications",
+    "notes",
+    "patient",
+    "procedures",
+    "visits"
   ],
   "output_col": "results",
   "port": "8765",
@@ -24,7 +22,7 @@
     "model": "gpt-4o-mini",
     "sampling": true, 
     "temperature": 0.0,
-    "top_p": 0.01,
+    "top_p": 0.0001,
     "seed": 2
   },
   "runner": {
@@ -32,25 +30,49 @@
       "role": "You are a clinical expert. ",
       "instructions": [
         {
-          "name": "medication_history",
-          "content": "Extract patient's medication history."
+          "name": "demography",
+          "content": "Extract patient's demography info.",
+          "scope": null
         },
         {
-          "name": "diagnosis",
-          "content": "Extract patient's patient's diagnosises with datetime."
+          "name": "allergies",
+          "content": "Extract patient's allergies.",
+          "scope": null
+        },
+        {
+          "name": "latest_reason_to_visit",
+          "content": "Extract patient's latest encounter's cheif complaints.",
+          "scope": null
+        },
+        {
+          "name": "illness_history",
+          "content": "Extract illness from patient's historical SOAP notes.",
+          "scope": null
+        },
+        {
+          "name": "medication_history",
+          "content": "Extract patient's medication history.",
+          "scope": null
+        },
+        {
+          "name": "diagnosis_history",
+          "content": "Extract patient's patient's diagnosises with datetime.",
+          "scope": null
         }
       ]
     },
     "reduce": {
       "role": "You are a clinical expert. ",
-      "groups": [
+      "instructions": [
         {
           "name": "Objective",
+          "content": null,
           "scope": ["medication_history"]
         },
         {
           "name": "Assessment",
-          "scope": ["diagnosis"]
+          "content": null,
+          "scope": ["diagnosis_history"]
         }
       ]
     }
