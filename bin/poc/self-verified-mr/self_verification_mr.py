@@ -12,7 +12,7 @@ import copy
 import json
 from typing import Union, Optional, List, Dict, Coroutine, Callable, Any
 from pydantic import BaseModel
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI, AsyncAzureOpenAI
 from openai import ChatCompletion
 
 
@@ -68,7 +68,7 @@ def any_to_str(in_data: Any) -> str:
 
 class LlmCli:
     def __init__(self):
-        self.cli: Optional[OpenAI] = None
+        self.cli: Optional[OpenAI | AsyncAzureOpenAI] = None
         self.async_cli: Optional[AsyncOpenAI] = None
         self.model: Optional[str] = None
         self.seed: Optional[int] = None
@@ -82,12 +82,21 @@ class LlmCli:
         api_key: str,
         api_url: str, 
         seed: int=2, 
+        api_type: str="openai",
+        api_version: str="",
         temperature: float=0.0, 
         top_p: float=0.01
     ):
         out = cls()
-        out.cli =  OpenAI(api_key=api_key, base_url=api_url)
-        out.async_cli = AsyncOpenAI(api_key=api_key, base_url=api_url)
+        if api_type == "openai":
+            out.async_cli = AsyncOpenAI(api_key=api_key, base_url=api_url)
+        # Refer to https://elanthirayan.medium.com/using-azure-openai-with-python-a-step-by-step-guide-415d5850169b
+        elif api_type == "azure":
+            out.async_cli = AsyncAzureOpenAI(
+                azure_endpoint=api_url, 
+                api_version=api_version,
+                api_key=api_key
+            )
         out.model = model
         out.seed = seed
         out.temperature = temperature
@@ -101,38 +110,18 @@ class LlmCli:
             api_key=configs["api_key"],
             api_url=configs["api_url"],
             temperature=configs["temperature"],
-            seed=configs["seed"]
-        )
-
-    def run(self, 
-        msg: Union[str, Dict], 
-        prefix: Union[Dict, List[Dict]]=None, 
-        json_schema: Optional[Dict]=None,
-        temperature: Optional[float]=None
-    ) -> ChatCompletion:
-        if isinstance(msg, str):
-            msg = {"role": "user", "content": msg}
-        if prefix is None:
-            prefix = []
-        if isinstance(prefix, dict):
-            prefix = [prefix]
-        return self.cli.chat.completions.create(
-            model=self.model, 
-            messages=prefix + [msg],
-            seed=self.seed,
-            temperature=(
-                temperature if temperature is not None 
-                else self.temperature
-            ),
-            top_p=self.top_p,
-            response_format=json_schema
+            seed=configs["seed"],
+            api_type=configs["api_type"],
+            api_version=configs["api_version"]
         )
 
     async def async_run(
         self, 
         msg: Union[str, Dict],
         prefix: Union[Dict, List[Dict]]=None,
-        json_schema: Optional[Dict]=None
+        json_schema: Optional[Dict]=None,
+        temperature: Optional[float]=None, 
+        max_tokens: int=320
     ):
         if isinstance(msg, str):
             msg = {"role": "user", "content": msg}
@@ -144,7 +133,8 @@ class LlmCli:
             model=self.model, 
             messages=prefix + [msg],
             seed=self.seed,
-            temperature=self.temperature,
+            temperature=self.temperature if temperature is None else temperature,
+            max_tokens=max_tokens,
             top_p=self.top_p,
             response_format=json_schema
         )
@@ -186,11 +176,14 @@ def instructions_to_output(
             instructions.result = None
             break
         name: str = instruction.name
+        val: str = instruction.msgs[-1]["content"]
+        """
         val: Dict | List | str = instruction.msgs[-1]["content"]
         try:
             val = json.loads(llm_resp_json_clean(val))
         except Exception as e:
             pass
+        """
         if instructions.result is None:
             instructions.result = {}
         instructions.result[name] = val
@@ -451,24 +444,31 @@ class RewritingReducer(InstructionsReducer):
         instruction: Instruction
     ) -> Instruction:
         instruction.msgs = []
+        """
         inputs: Dict[str, Dict | List | str] = {
             k: v for k, v in prev_instructions.result.items() 
             if k in instruction.scope
         }
-        target_instructions: List[Instruction] = [
-            x for x in prev_instructions.instructions 
-            if x.name in instruction.scope
-        ]
+        """
+        inputs: Dict[str, str] = {
+            k: v for k, v in prev_instructions.result.items()
+            if k in instruction.scope
+        }
         target_data: str = ""
         for input_name, input_data in inputs.items():
-            map_output: List[str] = [x["content"] for x in input_data]
+            """
+            map_output: str = json.dumps(
+                [x["content"] for x in input_data], indent=2
+            )
+            """
+            map_output: str = input_data
             target_data += (
                 "<__NAME__>\n"
                 "__CONTENT__\n"
                 "</__NAME__>\n\n"
             )\
                 .replace("__NAME__", input_name)\
-                .replace("__CONTENT__", json.dumps(map_output, indent=2))
+                .replace("__CONTENT__", map_output)
    
         instruction.msgs = [
             {
