@@ -8,9 +8,9 @@ import asyncio
 import json
 from typing import Union, Optional, List, Dict, Coroutine, Callable, Any
 
-from instructions import instructions_to_output
-from llm_cli import LlmCli
-from instructions import Instructions, Instruction
+from .instructions import instructions_to_output
+from .llm_cli import LlmCli
+from .instructions import Instructions, Instruction
 
 
 class InstructionsRunnerBase:

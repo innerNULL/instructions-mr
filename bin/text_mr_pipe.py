@@ -19,13 +19,13 @@ from pydantic import BaseModel
 from openai import AsyncOpenAI, AsyncAzureOpenAI
 from openai import ChatCompletion
 
-from utils import json2str_kv
-from instructions import instructions_init_by_configs
-from instructions import instructions_to_output
-from instructions import instructions_to_md
-from instructions import Instruction, Instructions
-from instructions_runners import InstructionsRunnerBase
-from llm_cli import LlmCli
+from instructionspipe.utils import json2str_kv
+from instructionspipe.instructions import instructions_init_by_configs
+from instructionspipe.instructions import instructions_to_output
+from instructionspipe.instructions import instructions_to_md
+from instructionspipe.instructions import Instruction, Instructions
+from instructionspipe.instructions_runners import InstructionsRunnerBase
+from instructionspipe.llm_cli import LlmCli
 
 
 async def main() -> None:
@@ -33,19 +33,17 @@ async def main() -> None:
     print(configs)
     in_data_path: str = configs["in_data_path"]
     out_data_path: str = configs["out_data_path"]
-    in_text_cols: str = configs["in_text_cols"]
-    output_col: str = configs["output_col"]
-    map_conf: Dict = configs["runner"]["map"]
-    reduce_conf: Dict = configs["runner"]["reduce"]
+    map_conf: Dict = configs["pipe"][0]
+    reduce_conf: Dict = configs["pipe"][1]
  
     llm: LlmCli = LlmCli.new_with_configs(configs["llm"])
     mapper: InstructionsRunnerBase = InstructionsRunnerBase.new_with_llm(
         llm=llm, 
-        instructions=instructions_init_by_configs(map_conf["instructions"])
+        instructions=instructions_init_by_configs(map_conf)
     )
     reducer: InstructionsRunnerBase = InstructionsRunnerBase.new_with_llm(
         llm=llm, 
-        instructions=instructions_init_by_configs(reduce_conf["instructions"])
+        instructions=instructions_init_by_configs(reduce_conf)
     )
 
     # Check
@@ -79,6 +77,7 @@ async def main() -> None:
             "result": instructions_to_md(reduce_instructions)
         }
         in_sample["results"] = outputs
+        pdb.set_trace()
         out_file.write(
             json.dumps(in_sample, ensure_ascii=False) + "\n"
         )
